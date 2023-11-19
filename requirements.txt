@@ -1,0 +1,4 @@
+# conda create -n lavender_mirror python=3.10
+# conda activate lavender_mirror
+# conda install -r requirements.txt
+python -m lavender_mirror.run_model

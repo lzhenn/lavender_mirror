@@ -1,0 +1,10 @@
+*.pyc
+*.log
+data
+*.log
+build
+*.egg-info
+dist
+sandbox
+test_case/fig
+test_case/output
