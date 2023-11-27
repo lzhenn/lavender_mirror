@@ -23,14 +23,15 @@ CWD=sys.path[0]
 # path to this module
 #MWD=os.path.split(os.path.realpath(__file__))[0]
 
-def waterfall():
+def waterfall(cfg):
     '''
     Waterfall rundown!
     '''
 
     _setup_logging()
 
-    cfg=cfgparser.read_cfg('config.case.ini')
+    cfg = cfg
+    print(cfg['INPUT']['episode_file'])
     utils.write_log(f'{print_prefix}Main pipeline...')
     # read data, setup mesh
     episode_df=io.read_episode(cfg)
@@ -66,4 +67,14 @@ def _setup_logging():
     logging.config.fileConfig(
         resource_path, disable_existing_loggers=False)
 if __name__ == '__main__':
-    waterfall()
+    cfg = cfgparser.read_cfg('config_auto.case.ini')
+    path1 = cfg['INPUT']['episode_file']
+    path2 = cfg['OUTPUT']['nc_path']
+    path3 = cfg['OUTPUT']['fig_dir']
+    for each in cfg['INPUT']['episode_files'].split(','):
+
+        cfg['INPUT']['episode_file'] = path1 + each + '.txt'
+        cfg['OUTPUT']['nc_path'] = path2 + 'cruise.' + each + '.nc'
+        cfg['OUTPUT']['fig_dir'] = path3 + each + '/'
+
+        waterfall(cfg)

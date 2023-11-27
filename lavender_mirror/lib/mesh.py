@@ -9,8 +9,15 @@ from scipy.spatial.distance import cdist
 print_prefix='lib.mesh>>'
 def build_meshgrid(cfg):
     # Define SW and NE points
-    sw_lat, sw_lon = 30.768639, 121.418872 
-    ne_lat, ne_lon = 30.823493, 121.482215
+    # sw_lat, sw_lon = 30.768639, 121.418872 
+    # ne_lat, ne_lon = 30.823493, 121.482215
+    # sw_lat, sw_lon = 31.14, 121.23 
+    # ne_lat, ne_lon = 31.4, 121.7
+    sw_lat = float(cfg['INPUT']['lon_min'])
+    sw_lon = float(cfg['INPUT']['lat_min'])
+    ne_lat = float(cfg['INPUT']['lon_max'])
+    ne_lon = float(cfg['INPUT']['lat_max'])
+    
     #res=0.001 # 0.001 ~ 100m
     res=0.00001*int(cfg['KERNEL']['res_mesh'])
 
@@ -29,11 +36,12 @@ def build_uvmesh(cfg, df_tfs, lat_mesh, lon_mesh):
     #tfs=pd.date_range(
     #    df_tfs[0]-datetime.timedelta(hours=1), df_tfs[-1], freq='1T')
     res_mesh=cfg['KERNEL']['res_mesh']
-    utils.write_log(f'{print_prefix}build uv mesh in {res_mesh}m resolution...')
     tfs=pd.date_range(
-        df_tfs[0].strftime('%Y-%m-%d %H:%M'), df_tfs[-1].strftime('%Y-%m-%d %H:%M'), freq='1T')
+    df_tfs[0].strftime('%Y-%m-%d %H:%M'), df_tfs[-1].strftime('%Y-%m-%d %H:%M'), freq='1T')
     nt=len(tfs)
     nx,ny=lon_mesh.shape
+
+    utils.write_log(f'{print_prefix}build uv mesh in {res_mesh}m resolution, size: ({nt} X {nx} X {ny})...')
     u,v=np.full((nt, nx, ny), np.nan),np.full((nt, nx, ny), np.nan)
     #u,v=2.0,0.8
     # Convert u to xarray DataArray and add dimensions and coordinates
