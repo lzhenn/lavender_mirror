@@ -32,12 +32,14 @@ def build_meshgrid(cfg):
     # Create latitude and longitude meshgrid
     lon_mesh, lat_mesh = np.meshgrid(lon_array, lat_array)
     return lon_mesh, lat_mesh
-def build_uvmesh(cfg, df_tfs, lat_mesh, lon_mesh):
+def build_uvmesh(cfg, df, lat_mesh, lon_mesh):
+    df_tfs=df.index
     #tfs=pd.date_range(
     #    df_tfs[0]-datetime.timedelta(hours=1), df_tfs[-1], freq='1T')
     res_mesh=cfg['KERNEL']['res_mesh']
     tfs=pd.date_range(
     df_tfs[0].strftime('%Y-%m-%d %H:%M'), df_tfs[-1].strftime('%Y-%m-%d %H:%M'), freq='1T')
+    t1d=np.array([val.timestamp() for val in tfs])
     nt=len(tfs)
     nx,ny=lon_mesh.shape
 
@@ -52,15 +54,28 @@ def build_uvmesh(cfg, df_tfs, lat_mesh, lon_mesh):
  
     nx,ny=lon_mesh.shape
     XLAT, XLONG, U10, V10, wrf_tfs=io.feed_uv(cfg, tfs)
-    latsub, lonsub=find_area(XLAT, XLONG, lat_mesh, lon_mesh) 
+    
+    latsub, lonsub=find_area(XLAT, XLONG, lat_mesh, lon_mesh)
+    
+    utils.write_log(f'{print_prefix}locating and filling u and v into mesh...')
     for lat0, lon0 in zip(latsub, lonsub):
+        ilat,ilon=locate_position(lat0, lon0, XLAT, XLONG)
+        ilat_area, ilon_area=locate_position(lat0, lon0, lat_mesh, lon_mesh)
         for it, tf in enumerate(wrf_tfs):
-            ilat,ilon=locate_position(lat0, lon0, XLAT, XLONG)
-            ilat_area, ilon_area=locate_position(lat0, lon0, lat_mesh, lon_mesh)
-            it_area=find_it(tf, tfs)
-            u.values[it_area,ilat_area,ilon_area]=U10.sel(file=it)[ilat,ilon].values
-            v.values[it_area,ilat_area,ilon_area]=V10.sel(file=it)[ilat,ilon].values
-            #print(it, ilat, ilon, U10.sel(file=it)[ilat,ilon].values, V10.sel(file=it)[ilat,ilon].values)
+            it_area=find_it(tf, t1d)
+            u.values[it_area,ilat_area,ilon_area]=U10.values[it,ilat,ilon]
+            v.values[it_area,ilat_area,ilon_area]=V10.values[it,ilat,ilon]
+    
+    if 'u' in df.columns.values:
+        utils.write_log(f'{print_prefix} filling cruise wind observations into mesh...')
+        uv_df = df.resample('1T').bfill()
+        for idx, (tf, row) in enumerate(uv_df.iterrows()):
+            ilat_area, ilon_area=locate_position(row['lat'], row['lon'], lat_mesh, lon_mesh)
+            u.values[idx,ilat_area,ilon_area]=row['u']
+            v.values[idx,ilat_area,ilon_area]=row['v']
+
+
+    utils.write_log(f'{print_prefix} 3D interpolating...')
     u,v=interp_3d(u),interp_3d(v)
     return u,v
 def interp_3d(da):
@@ -68,11 +83,10 @@ def interp_3d(da):
     da=da.interpolate_na(dim='lat', method="linear", fill_value="extrapolate") 
     da=da.interpolate_na(dim='time', method="linear", fill_value="extrapolate") 
     return da
-def find_it(tf, tfs):
+def find_it(tf, t1d):
     tf=tf+datetime.timedelta(hours=8) # to localtime
-    for it, t in enumerate(tfs):
-        if tf==t:
-            return it
+    it= np.abs(t1d - tf.timestamp()).argmin()
+    return it
 def find_area(XLAT, XLONG, lat_mesh, lon_mesh):
     latmin, latmax=lat_mesh[:,0].min(), lat_mesh[:,0].max()
     lonmin, lonmax=lon_mesh[0,:].min(), lon_mesh[0,:].max()
@@ -92,12 +106,12 @@ def locate_position(lat0, lon0, lat_mesh, lon_mesh):
     # Return the matrix index
     return lat_index, lon_index
 
-def build_field(cruise_df, lat_mesh, lon_mesh):
+def build_field(cfg, cruise_df, lat_mesh, lon_mesh):
     utils.write_log(f'{print_prefix}build concentration field...')
     conc, times=np.zeros(lat_mesh.shape), np.zeros(lat_mesh.shape)
     for idx, row in cruise_df.iterrows():
         lat_index, lon_index = locate_position(row['lat'], row['lon'], lat_mesh, lon_mesh)
-        conc[lat_index, lon_index] += row['TVOC2']
+        conc[lat_index, lon_index] += row[cfg['INPUT']['tgt_species']]
         times[lat_index, lon_index] +=1
     conc=conc/times
     return conc

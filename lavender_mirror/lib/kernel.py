@@ -1,5 +1,5 @@
-#/usr/bin/env python3
-from . import  utils, mesh
+#!/usr/bin/env python3
+from . import  utils, mesh 
 import numpy as np
 import datetime
 print_prefix='lib.kernel>>'
@@ -57,7 +57,6 @@ class Particles:
         self.nsteps=int(cfg['KERNEL']['nsteps'])
         self.dt=int(cfg['KERNEL']['dt'])
         self.part_id=np.arange(self.nptcls,dtype=np.int32)
-        self.lat2d, self.lon2d=lat2d,lon2d 
         self.conc=np.zeros(self.nptcls)
         self.xlons=np.zeros((self.nptcls,self.nsteps),dtype=np.float32)
         self.xlats=self.xlons.copy()
@@ -65,7 +64,7 @@ class Particles:
         for idx, (tf, row) in enumerate(df.iterrows()):
             self.xlons[idx,0],self.xlats[idx,0]=row['lon'],row['lat']
             self.xtimes.append(tf)
-            self.conc[idx]=row['TVOC2']
+            self.conc[idx]=row[cfg['INPUT']['tgt_species']]
     
         utils.write_log(
             print_prefix+'array with %d parcels initiated!' % self.nptcls)
@@ -73,18 +72,24 @@ class Particles:
     def march(self,u,v):
         """ march particles """
         dt=self.dt 
-        #for idx in range(60):
-        for idx in range(self.nptcls):
-            it=self.xtimes[idx]
-            utils.write_log(
-                print_prefix+'Marching parcel %d at time %s for %d seconds' % (
-                    idx, it.strftime('%Y-%m-%d %H:%M:%S'), dt*self.nsteps)
-            )
-            for idt in range(self.nsteps-1):
+        u4d,v4d=u.values,v.values
+        lat1d,lon1d=u.lat.values,u.lon.values
+        t1d=np.array([val.tolist()/1e9 for val in u.time.values])
+        utils.write_log(
+                print_prefix+'Marching %d parcels for %d seconds' % (
+                self.nptcls, dt*self.nsteps))
+            
 
+        for idx in range(self.nptcls):
+            tf=self.xtimes[idx]
+            it=tf.timestamp()
+            for idt in range(self.nsteps-1):
                 ilat,ilon=self.xlats[idx,idt],self.xlons[idx,idt]
-                u0=u.sel(lat=ilat,lon=ilon,time=it, method='nearest')
-                v0=v.sel(lat=ilat,lon=ilon,time=it, method='nearest')
+                idlat=get_closest_idx_lsearch(lat1d, ilat)
+                idlon=get_closest_idx_lsearch(lon1d, ilon)
+                idtime=get_closest_idx_lsearch(t1d, it)
+                u0=u4d[idtime,idlat,idlon]
+                v0=v4d[idtime,idlat,idlon]
                 dx=u0*dt
                 dlon=dx*180/(CONST['a']*np.sin(np.pi/2-np.radians(ilat))*np.pi)
                 dy=v0*dt
@@ -93,4 +98,10 @@ class Particles:
                 # update
                 self.xlats[idx,idt+1]=self.xlats[idx,idt]+dlat
                 self.xlons[idx,idt+1]=self.xlons[idx,idt]+dlon
-                it = it+datetime.timedelta(seconds=dt)
+                it = it+dt
+
+def get_closest_idx_lsearch(l1d, tgt_value):
+    """
+        Find the nearest idx in l1d (linear search)
+    """
+    return np.abs(l1d - tgt_value).argmin()

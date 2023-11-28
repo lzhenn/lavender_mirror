@@ -35,8 +35,8 @@ def waterfall():
     # read data, setup mesh
     episode_df=io.read_episode(cfg)
     lon2d, lat2d=mesh.build_meshgrid(cfg)
-    u,v=mesh.build_uvmesh(cfg, episode_df.index, lat2d, lon2d)
-    conc_dry=mesh.build_field(episode_df, lat2d, lon2d)
+    u,v=mesh.build_uvmesh(cfg, episode_df, lat2d, lon2d)
+    conc_dry=mesh.build_field(cfg, episode_df, lat2d, lon2d)
     
     # traced conc distribution
     conc_trace, times=kernel.lagrun(cfg, episode_df, u, v, lat2d, lon2d)
@@ -53,9 +53,12 @@ def waterfall():
     fig_path=cfg['OUTPUT']['fig_dir']
     if not os.path.exists(fig_path):
         os.makedirs(fig_path)
-    mesh.paint2d(os.path.join(fig_path,'conc_dry.png'), conc_dry, lat2d, lon2d)
-    mesh.paint2d(os.path.join(fig_path,'conc_trace.png'), conc_trace, lat2d, lon2d)
-    mesh.paint2d(os.path.join(fig_path,'conc_trace_times.png'), times, lat2d, lon2d,minmax=(0, 50))
+    mesh.paint2d(
+        os.path.join(fig_path,'conc_dry.png'), conc_dry, lat2d, lon2d, minmax=(0, 20))
+    mesh.paint2d(
+        os.path.join(fig_path,'conc_trace.png'), conc_trace, lat2d, lon2d, minmax=(0, 20))
+    mesh.paint2d(
+        os.path.join(fig_path,'conc_trace_times.png'), times, lat2d, lon2d,minmax=(0, 50))
 
 def _setup_logging():
     """

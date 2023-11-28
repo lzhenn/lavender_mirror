@@ -4,6 +4,7 @@
 import os, datetime
 import pandas as pd
 import xarray as xr
+import numpy as np
 from . import utils
 import wrf
 import netCDF4 as nc4
@@ -40,16 +41,30 @@ def read_episode(cfg):
     read episode data
     '''
     episode_fn=cfg['INPUT']['episode_file'] 
-    rsmp_frq=cfg['INPUT']['resample_frq']+'S' 
+    rsmp_frq=cfg['INPUT']['resample_frq']+'S'
+    tgt=cfg['INPUT']['tgt_species'] 
     try:
+        # Standard format
+        df = pd.read_csv(episode_fn)
+        df['time'] = pd.to_datetime(df['time'], format='%Y-%m-%d_%H:%M:%S')
+ 
+    except:
+        # Read the CSV file with ';' delimiter
         df = pd.read_csv(episode_fn, delimiter=';',
                 header=None, usecols=[0, 1, 2, 3], 
                 names=['time', 'lon', 'lat', 'TVOC2'], parse_dates=['time'])
-    except:
-        df = pd.read_csv(episode_fn)
-        df['time'] = pd.to_datetime(df['time'], format='%Y-%m-%d_%H:%M:%S')
+ 
+    if cfg['INPUT'].getboolean('parse_wind'):
+        try:
+            wspd,wdir=df['wspd'].values,df['wdir'].values
+        except:
+            utils.throw_error(f'{print_prefix}wspd or wdir parser error in {episode_fn}!')
+        u1d,v1d=np.zeros(len(wspd)),np.zeros(len(wspd))
+        for id in range(len(wspd)):
+            u1d[id],v1d[id]=utils.wswd2uv(wspd[id],wdir[id])
+        df['u'],df['v']=u1d,v1d
     res_df = df.resample(rsmp_frq, on='time').mean()
-    res_df = res_df.dropna(subset=['TVOC2'])
+    res_df = res_df.dropna(subset=[tgt])
     return(res_df)
 
 def feed_uv(cfg, tfs):
