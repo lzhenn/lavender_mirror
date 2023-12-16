@@ -157,15 +157,16 @@ def inverse_distance_interpolation(x, y, z, xi, yi, n=3):
     zi = w.ravel().dot(z[idx].ravel())
     return zi
 
-def paint2d(fn, var2d, lat_mesh, lon_mesh, minmax=(0, 500)):
+def paint2d(fn, ep_df, var2d, lat_mesh, lon_mesh):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     pcm=ax.pcolormesh(lon_mesh, lat_mesh, var2d, cmap='jet',
-                      vmin=minmax[0], vmax=minmax[1])
+                      vmin=np.nanmin(var2d), vmax=np.nanmax(var2d))
     # Add colorbar
     cbar = fig.colorbar(pcm)
+    ax.plot(ep_df['lon'], ep_df['lat'], color='black', linewidth=0.5)
     # Save the figure to a directory using the agg backend
     fig.savefig(fn, bbox_inches='tight', dpi=300, format='png')
     plt.close(fig)

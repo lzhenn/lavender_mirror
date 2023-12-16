@@ -39,7 +39,7 @@ def waterfall():
     conc_dry=mesh.build_field(cfg, episode_df, lat2d, lon2d)
     
     # traced conc distribution
-    conc_trace, times=kernel.lagrun(cfg, episode_df, u, v, lat2d, lon2d)
+    conc_trace, times, weights=kernel.lagrun(cfg, episode_df, u, v, lat2d, lon2d)
     
     if cfg['KERNEL'].getboolean('idw_flag'):
         conc_trace=mesh.idw_interp_field(conc_trace)
@@ -47,18 +47,26 @@ def waterfall():
     # output
     io.outnc(
         cfg, lat2d, lon2d, 
-        {'conc_dry':conc_dry, 'conc_trace':conc_trace, 'tracer_counts':times})
+        {'conc_dry':conc_dry, 'conc_trace':conc_trace, 
+         'tracer_counts':times, 'ave_weights':weights})
     
     # paint
     fig_path=cfg['OUTPUT']['fig_dir']
     if not os.path.exists(fig_path):
         os.makedirs(fig_path)
     mesh.paint2d(
-        os.path.join(fig_path,'conc_dry.png'), conc_dry, lat2d, lon2d, minmax=(0, 20))
+        os.path.join(fig_path,'conc_dry.png'), episode_df,
+        conc_dry, lat2d, lon2d)
     mesh.paint2d(
-        os.path.join(fig_path,'conc_trace.png'), conc_trace, lat2d, lon2d, minmax=(0, 20))
+        os.path.join(fig_path,'conc_trace.png'), episode_df,
+        conc_trace, lat2d, lon2d)
     mesh.paint2d(
-        os.path.join(fig_path,'conc_trace_times.png'), times, lat2d, lon2d,minmax=(0, 50))
+        os.path.join(fig_path,'conc_trace_times.png'), episode_df,
+        times, lat2d, lon2d)
+    mesh.paint2d(
+        os.path.join(fig_path,'conc_trace_weights.png'), episode_df,
+        weights, lat2d, lon2d)
+
 
 def _setup_logging():
     """
